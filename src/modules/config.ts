@@ -145,17 +145,21 @@ export function readConfigsFromFile(configPath): Promise<any[]> {
   });
 }
 
+export function readConfigsFromSettings(): Promise<any[]> {
+  const config = vscode.workspace.getConfiguration('sftp');
+  const profile = config.get('profile', {});
+  const configs = Array.isArray(profile) ? profile : [profile];
+  return Promise.resolve(configs.map(mergedDefault));
+}
+
 export function tryLoadConfigs(workspace): Promise<any[]> {
   const configPath = getConfigPath(workspace);
-  return fse.pathExists(configPath).then(
-    exist => {
-      if (exist) {
-        return readConfigsFromFile(configPath);
-      }
-      return [];
-    },
-    _ => []
-  );
+  const exists = fse.pathExistsSync(configPath);
+  if (exists) {
+    return readConfigsFromFile(configPath);
+  }
+
+  return readConfigsFromSettings();
 }
 
 // export function getConfig(activityPath: string) {

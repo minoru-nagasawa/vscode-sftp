@@ -29,7 +29,7 @@
   ],
   "activationEvents": [
     "onCommand:sftp.config",
-    "workspaceContains:.vscode/sftp.json"
+    "onStartupFinished"
   ],
   "icon": "resources/icon.png",
   "main": "./dist/extension",
@@ -70,6 +70,10 @@
           "type": "boolean",
           "default": false,
           "description": "\"Download\" instead of \"View Content\" when open file in Remote Explorer"
+        },
+        "sftp.profile": {  
+          "type": "object",  
+          "description": "SFTP server profiles configured in settings"  
         }
       }
     },

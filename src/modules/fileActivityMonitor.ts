@@ -1,13 +1,15 @@
 import * as vscode from 'vscode';
+import * as path from "path";
 import logger from '../logger';
 import { realpathSync } from 'fs';
 import app from '../app';
 import StatusBarItem from '../ui/statusBarItem';
 import { onDidOpenTextDocument, onDidSaveTextDocument, showConfirmMessage } from '../host';
-import { readConfigsFromFile } from './config';
+import { readConfigsFromFile, readConfigsFromSettings } from './config';
 import {
   createFileService,
   getFileService,
+  getAllFileService,
   findAllFileService,
   disposeFileService,
 } from './serviceManager';
@@ -31,6 +33,23 @@ async function handleConfigSave(uri: vscode.Uri) {
   try {
     const configs = await readConfigsFromFile(uri.fsPath);
     configs.forEach(config => createFileService(config, workspacePath));
+  } catch (error) {
+    reportError(error);
+  } finally {
+    app.remoteExplorer.refresh();
+  }
+}
+
+async function handleSettingsSave() {
+  const workspacePaths = getBaseFolderPaths();
+
+  // dispose old service
+  getAllFileService().forEach(disposeFileService);
+
+  // create new service
+  try {
+    const configs = await readConfigsFromSettings();
+    workspacePaths.forEach(workspacePath => createFileService(configs[0], workspacePath));
   } catch (error) {
     reportError(error);
   } finally {
@@ -82,12 +101,27 @@ async function downloadOnOpen(uri: vscode.Uri) {
   }
 }
 
-function watchWorkspace({
+function getBaseFolderPaths(): string[]{
+  // 1) Folder containing the workspace file (.code-workspace)
+  const wf = vscode.workspace.workspaceFile;
+  if (wf?.scheme === "file") return [path.dirname(wf.fsPath)];
+
+  // 2) Opened directly as a folder
+  const folders = vscode.workspace.workspaceFolders;
+  if (folders && folders.length > 0) return folders.map(folder => folder.uri.fsPath);
+
+  return [];
+}
+
+function watchWorkspace(context: vscode.ExtensionContext,
+{
   onDidSaveFile,
   onDidSaveSftpConfig,
+  onDidSaveSettings
 }: {
   onDidSaveFile: (uri: vscode.Uri) => void;
   onDidSaveSftpConfig: (uri: vscode.Uri) => void;
+  onDidSaveSettings: () => void;
 }) {
   if (workspaceWatcher) {
     workspaceWatcher.dispose();
@@ -111,9 +145,20 @@ function watchWorkspace({
 
     onDidSaveFile(uri);
   });
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
+      if (!e.affectsConfiguration("sftp.profile")) return;
+      try {
+        onDidSaveSettings();
+      } catch (error) {
+        reportError(error, "onDidChangeConfiguration(sftp)");
+      }
+    })
+  );
 }
 
-function init() {
+function init(context: vscode.ExtensionContext) {
   onDidOpenTextDocument((doc: vscode.TextDocument) => {
     if (!isValidFile(doc.uri) || !isInWorkspace(doc.uri.fsPath)) {
       return;
@@ -122,9 +167,10 @@ function init() {
     downloadOnOpen(doc.uri);
   });
 
-  watchWorkspace({
+  watchWorkspace(context, {
     onDidSaveFile: handleFileSave,
     onDidSaveSftpConfig: handleConfigSave,
+    onDidSaveSettings: handleSettingsSave
   });
 }
 
