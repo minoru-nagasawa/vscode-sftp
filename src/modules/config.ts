@@ -3,7 +3,7 @@ import * as fse from 'fs-extra';
 import * as path from 'path';
 import * as Joi from 'joi';
 import { CONFIG_PATH } from '../constants';
-import { reportError } from '../helper';
+import { reportError, ConfigurationResolverExpression } from '../helper';
 import { showTextDocument } from '../host';
 
 const nullable = schema => schema.optional().allow(null);
@@ -121,6 +121,50 @@ function mergedDefault(config) {
   };
 }
 
+function resolveExpression(config) {
+  if (typeof config === "string") {
+    const expr = ConfigurationResolverExpression.parse(config);
+
+    for (const replacement of expr.unresolved()) {
+      let value: string = "";
+      switch (replacement.name) {
+        case "env":
+          value = process.env[replacement.arg ?? ''] || '';
+          break;
+        case "config":
+          const settingValue = vscode.workspace.getConfiguration().get(replacement.arg ?? '');
+          if (typeof settingValue === "string") {
+            value = settingValue;
+          }
+          else if (typeof settingValue === "number" || typeof settingValue === "boolean") {
+            value = settingValue.toString();
+          }
+          break;
+      }
+      
+      expr.resolve(replacement, value);
+    }
+
+    const result = expr.toObject();
+    return result;
+  }
+
+  if (Array.isArray(config)) {
+    return config.map(resolveExpression);
+  }
+
+  if (config && typeof config === "object") {
+    const out: any = {};
+    for (const [k, v] of Object.entries(config)) {
+      out[k] = resolveExpression(v);
+    }
+    return out;
+  }
+
+  // number/boolean/null はそのまま
+  return config;
+}
+
 function getConfigPath(basePath) {
   return path.join(basePath, CONFIG_PATH);
 }
@@ -141,7 +185,8 @@ export function validateConfig(config) {
 export function readConfigsFromFile(configPath): Promise<any[]> {
   return fse.readJson(configPath).then(config => {
     const configs = Array.isArray(config) ? config : [config];
-    return configs.map(mergedDefault);
+    return configs.map(resolveExpression)
+                  .map(mergedDefault);
   });
 }
 
@@ -149,7 +194,8 @@ export function readConfigsFromSettings(): Promise<any[]> {
   const config = vscode.workspace.getConfiguration('sftp');
   const profile = config.get('profile', {});
   const configs = Array.isArray(profile) ? profile : [profile];
-  return Promise.resolve(configs.map(mergedDefault));
+  return Promise.resolve(configs.map(resolveExpression)
+                                .map(mergedDefault));
 }
 
 export function tryLoadConfigs(workspace): Promise<any[]> {
