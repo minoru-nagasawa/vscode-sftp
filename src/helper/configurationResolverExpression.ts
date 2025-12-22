@@ -11,6 +11,7 @@
 //import { Iterable } from '../../../../base/common/iterator.js';
 //import { isLinux, isMacintosh, isWindows } from '../../../../base/common/platform.js';
 //import { ConfiguredInput } from './configurationResolver.js';
+import structuredClone from '@ungap/structured-clone';
 
 /** A replacement found in the object, as ${name} or ${name:arg} */
 export type Replacement = {
@@ -283,6 +284,18 @@ export class ConfigurationResolverExpression<T> implements IConfigurationResolve
 		}
 	}
 
+	private replaceAll(str: string, find: string, replace: string) {
+		if (find === '') {
+			return str;
+		}
+		let result = str;
+		while (result.indexOf(find) !== -1) {
+			result = result.replace(find, replace);
+		}
+
+		return result;
+	}
+
 	private _resolveAtLocation(replacement: Replacement, { replaceKeyName, propertyName, object }: PropertyLocation, data: IResolvedValue, path: string[] = []) {
 		if (data.value === undefined) {
 			return;
@@ -294,7 +307,8 @@ export class ConfigurationResolverExpression<T> implements IConfigurationResolve
 		// note: in nested `this.parseString`, parse only the new substring for any replacements, don't reparse the whole string
 		if (replaceKeyName && typeof propertyName === 'string') {
 			const value = object[propertyName];
-			const newKey = propertyName.replaceAll(replacement.id, data.value);
+			//const newKey = propertyName.replaceAll(replacement.id, data.value);
+			const newKey = this.replaceAll(propertyName, replacement.id, data.value);
 			delete object[propertyName];
 			object[newKey] = value;
 			this._renameKeyInLocations(object, propertyName, newKey);
