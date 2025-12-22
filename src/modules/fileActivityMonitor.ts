@@ -148,7 +148,6 @@ function watchWorkspace(context: vscode.ExtensionContext,
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
-      if (!e.affectsConfiguration("sftp.profile")) return;
       try {
         onDidSaveSettings();
       } catch (error) {
