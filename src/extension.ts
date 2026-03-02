@@ -30,18 +30,18 @@ async function setupSettings()
 
 async function setupFolder(workspaceFolders) : Promise<void[]> {
   // Check if there is any config file in workspace folder
-  let hasConfigFile = false;
+  let hasConfig = false;
 
   for (const folder of workspaceFolders) {
     const dir = folder.uri ? folder.uri.fsPath : folder;
     const configPath = getConfigPath(dir);
     if (fse.pathExistsSync(configPath)) {
-      hasConfigFile = true;
+      hasConfig = true;
       break;
     }
   }
 
-  if (hasConfigFile) {
+  if (hasConfig) {
     logger.info('Found config file in workspace folders. Loading configs from files.');
     const pendingInits = workspaceFolders.map(folder => setupWorkspaceFolder(folder.uri.fsPath));
     return Promise.all(pendingInits);
