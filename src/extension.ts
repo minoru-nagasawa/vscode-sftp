@@ -46,7 +46,7 @@ async function setupFolder(workspaceFolders) : Promise<void[]> {
     const pendingInits = workspaceFolders.map(folder => setupWorkspaceFolder(folder.uri.fsPath));
     return Promise.all(pendingInits);
   } else {
-    logger.info('No config file found in workspace folders. Loading config from settings.');
+    logger.info('No config file found in workspace folders. Loading configs from settings.');
     const PromiseArray: Promise<void[]> = Promise.all([setupSettings()]);
     return PromiseArray;
   }
