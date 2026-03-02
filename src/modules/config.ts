@@ -165,8 +165,25 @@ function resolveExpression(config) {
   return config;
 }
 
-function getConfigPath(basePath) {
+export function getConfigPath(basePath) {
   return path.join(basePath, CONFIG_PATH);
+}
+
+export function getBaseFolderPaths(setting : any) : string[] {
+  // 1) Folder defined in workspace settings "localPath"
+  if (setting && setting.localPath) {
+    return [setting.localPath];
+  }
+
+  // 2) Folder containing the workspace file (.code-workspace)
+  const wf = vscode.workspace.workspaceFile;
+  if (wf?.scheme === "file") return [path.dirname(wf.fsPath)];
+
+  // 3) Opened directly as a folder
+  const folders = vscode.workspace.workspaceFolders;
+  if (folders && folders.length > 0) return folders.map(folder => folder.uri.fsPath);
+  
+  return [];
 }
 
 export function validateConfig(config) {

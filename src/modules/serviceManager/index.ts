@@ -7,6 +7,7 @@ import { UResource, FileService, TransferTask } from '../../core';
 import { validateConfig } from '../config';
 import watcherService from '../fileWatcher';
 import Trie from './trie';
+import { TransferDirection } from '../../core';
 
 const WIN_DRIVE_REGEX = /^([a-zA-Z]):/;
 const isWindows = process.platform === 'win32';
@@ -107,7 +108,7 @@ export function createFileService(config: any, workspace: string) {
     );
   });
   service.afterTransfer((error, task) => {
-    const { localFsPath, transferType } = task;
+    const { localFsPath, transferType, targetFsPath, srcFsPath } = task;
     const filename = path.basename(localFsPath);
     const filepath = simplifyPath(localFsPath);
     if (task.isCancelled()) {
@@ -119,7 +120,12 @@ export function createFileService(config: any, workspace: string) {
       // }
       app.sftpBarItem.showMsg(`failed ${filename}`, filepath, 2000 * 2);
     } else {
-      logger.info(`${transferType} ${localFsPath}`);
+      if (transferType === TransferDirection.LOCAL_TO_REMOTE) {
+        logger.info(`${transferType} ${localFsPath} to ${targetFsPath}`);
+      }
+      else {
+        logger.info(`${transferType} ${srcFsPath} to ${localFsPath}`);
+      }
       app.sftpBarItem.showMsg(`done ${filename}`, filepath, 2000 * 2);
     }
   });
